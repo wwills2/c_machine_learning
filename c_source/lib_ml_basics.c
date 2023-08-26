@@ -26,7 +26,7 @@ static problemData_t g_data;
 int init(unsigned int numFeatures, unsigned int numObservations, double echelon, double lambda,
          double **p_featureMatrix, double *p_responseVector, double *p_learnedTheta);
 int finalize();
-int getDerivativeValues(const double *p_theta, double *p_derivativeValues);
+int i_getDerivativeValues(const double *p_theta, double *p_derivativeValues);
 int gradientDescentLinReg();
 
 
@@ -83,6 +83,7 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
     g_data.lenTheta = numFeatures + 1;
     g_data.p_learnedTheta = p_learnedTheta;
 
+    g_initialized = 1;
 
     return SUCCESS;
 }
@@ -93,6 +94,8 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
  * @return status of the operation
  */
 int finalize(){
+
+    g_initialized = 0;
 
     g_data.numFeatures = 0;
     g_data.numObservations = 0;
@@ -107,13 +110,70 @@ int finalize(){
 }
 
 /**
+ * Entry point for learning a linear regression model via gradient descent. while loop controls descent iterations and
+ * convergence condition
+ * 
+ * @return status code of the operation
+ */
+int gradientDescentLinReg(){
+
+    if (!g_initialized){
+        LOG(p_logStream, "data has not been initialized. try init()");
+        return ERROR;
+    }
+
+    int i;
+    int status;
+    unsigned int converged = 0;
+    unsigned int descentIterationNum = 0;
+    const unsigned int LEN_THETA = g_data.lenTheta;
+    double *p_derivativeValues;
+    double *p_prevTheta;
+
+    p_derivativeValues = calloc(LEN_THETA, sizeof (double));
+    p_prevTheta = calloc(LEN_THETA, sizeof (double));
+
+    while (!converged){
+
+        descentIterationNum++;
+
+        status = i_getDerivativeValues(p_prevTheta, p_derivativeValues);
+        if (!status){
+            LOG(p_logStream , "failed to get derivative values on iteration %i ", descentIterationNum);
+            return ERROR;
+        }
+
+        if (g_data.lambda == NO_REGULARIZATION){
+            for (i = 0; i < LEN_THETA; i++){
+                g_data.p_learnedTheta[i] = p_prevTheta[i] - (g_data.echelon * p_derivativeValues[i]);
+            }
+        }else{
+            //todo: implement regularization
+        }
+
+        converged = 1;
+        for (i = 0; i < LEN_THETA; i++){
+            if ((p_prevTheta[i] - g_data.p_learnedTheta[i]) > g_data.echelon){
+                converged = 0;
+                break;
+            }
+        }
+
+        p_prevTheta = g_data.p_learnedTheta;
+    }
+
+    return SUCCESS;
+}
+
+/**
+ * INTERNAL FUNCTION
  * calculates all partial derivatives of the cost function for each value of theta
  *
  * @param p_theta pointer to the current theta array
  * @param p_derivativeValues pointer to the buffer in which to place the theta derivative
  * @return status of the operation
  */
-int getDerivativeValues(const double *p_theta, double *p_derivativeValues){
+int i_getDerivativeValues(const double *p_theta, double *p_derivativeValues){
 
     //todo: decide on error conditions or remove return val
 
@@ -140,61 +200,6 @@ int getDerivativeValues(const double *p_theta, double *p_derivativeValues){
         }
 
         p_derivativeValues[i] /= g_data.numObservations;
-    }
-
-    return SUCCESS;
-}
-
-/**
- * Entry point for learning a linear regression model via gradient descent. while loop descent iterations and
- * convergence condition
- * 
- * @return status code of the operation
- */
-int gradientDescentLinReg(){
-
-    if (!g_initialized){
-        LOG(p_logStream, "data has not been initialized. try init()");
-    }
-
-    int i;
-    int status;
-    unsigned int converged = 0;
-    unsigned int descentIterationNum = 0;
-    const unsigned int LEN_THETA = g_data.lenTheta;
-    double *p_derivativeValues;
-    double *p_prevTheta;
-
-    p_derivativeValues = calloc(LEN_THETA, sizeof (double));
-    p_prevTheta = calloc(LEN_THETA, sizeof (double));
-
-    while (!converged){
-
-        descentIterationNum++;
-
-        status = getDerivativeValues(p_prevTheta, p_derivativeValues);
-        if (!status){
-            LOG(p_logStream , "failed to get derivative values on iteration %i ", descentIterationNum);
-            return ERROR;
-        }
-
-        if (g_data.lambda == NO_REGULARIZATION){
-            for (i = 0; i < LEN_THETA; i++){
-                g_data.p_learnedTheta[i] = p_prevTheta[i] - (g_data.echelon * p_derivativeValues[i]);
-            }
-        }else{
-            //todo: implement regularization
-        }
-
-        converged = 1;
-        for (i = 0; i < LEN_THETA; i++){
-            if ((p_prevTheta[i] - g_data.p_learnedTheta[i]) > g_data.echelon){
-                converged = 0;
-                break;
-            }
-        }
-
-        p_prevTheta = g_data.p_learnedTheta;
     }
 
     return SUCCESS;
