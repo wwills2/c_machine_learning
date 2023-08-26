@@ -7,6 +7,7 @@
 #define ERROR 0
 #define DEFAULT_ECHELON 10e-5
 #define NO_REGULARIZATION HUGE_VAL
+#define TAG "lib_ml_basics:\0"
 
 /**
  * Entry point for learning a linear regression model via gradient descent. while loop descent iterations and
