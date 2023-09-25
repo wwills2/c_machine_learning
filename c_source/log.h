@@ -5,10 +5,12 @@
 #define C_MACHINE_LEARNING_LOG_H
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define LOG fprintf
 
 extern FILE *p_logStream;
 void logInit();
+void logFinalize();
 
 #endif //C_MACHINE_LEARNING_LOG_H

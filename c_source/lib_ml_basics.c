@@ -20,15 +20,8 @@ struct {
 
 } typedef problemData_t;
 
-static int g_initialized = 0;
+static char g_initialized = 0;
 static problemData_t g_data;
-
-int init(unsigned int numFeatures, unsigned int numObservations, double echelon, double lambda,
-         double **p_featureMatrix, double *p_responseVector, double *p_learnedTheta);
-int finalize();
-int i_getDerivativeValues(const double *p_theta, double *p_derivativeValues);
-int gradientDescentLinReg();
-
 
 /**
  * Stores information about the learning problem and initializes buffers to store data
@@ -37,29 +30,32 @@ int gradientDescentLinReg();
  * @param numObservations the number of observations in the dataset
  * @param echelon the learning rate for gradient descent
  * @param lambda regularization constant
- * @param p_featureMatrix pointer to an 2 dim array representing and unscaled feature matrix
- * @param p_responseVector pointer to a 1 dim array representing the response vector
- * @param p_learnedTheta pointer to a 1 dim array representing the learned theta
+ * @param p_featureMatrixRef pointer to an 2 dim array representing and unscaled feature matrix
+ * @param p_responseVectorRef pointer to a 1 dim array representing the response vector
+ * @param p_learnedThetaRef pointer to a 1 dim array representing the learned theta
  * @return status code of the operation
  */
 int init(unsigned int numFeatures, unsigned int numObservations, double echelon, double lambda,
-         double **p_featureMatrix, double *p_responseVector, double *p_learnedTheta){
+         double ***p_featureMatrixRef, double **p_responseVectorRef, double **p_learnedThetaRef){
 
     int i;
     int error = 0;
 
-    if (p_featureMatrix != NULL){
-        LOG(p_logStream, "%s cannot initialize. feature matrix could point to allocated data. try finalize()", TAG);
+    logInit();
+    LOG(p_logStream, "%s checking buffer references\n", TAG);
+
+    if (p_featureMatrixRef == NULL){
+        LOG(p_logStream, "%s cannot initialize. Null reference to feature matrix\n", TAG);
         error = 1;
     }
 
-    if (p_responseVector != NULL){
-        LOG(p_logStream, "%s cannot initialize. response vector could point to allocated data. try finalize()", TAG);
+    if (p_responseVectorRef == NULL){
+        LOG(p_logStream, "%s cannot initialize. Null reference to response vector\n", TAG);
         error = 1;
     }
 
-    if(p_learnedTheta != NULL){
-        LOG(p_logStream, "%s cannot initialize. theta could point to allocated data. try finalize()", TAG);
+    if (p_learnedThetaRef == NULL){
+        LOG(p_logStream, "%s cannot initialize. Null reference to learned theta vector\n", TAG);
         error = 1;
     }
 
@@ -67,21 +63,60 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
         return ERROR;
     }
 
-    p_responseVector = calloc(numFeatures, sizeof (double));
-    p_learnedTheta = calloc(numFeatures, sizeof (double));
-    p_featureMatrix = calloc(numObservations, sizeof (double *));
-    for (i = 0; i < numObservations; i++){
-        p_featureMatrix[i] = calloc(numFeatures, sizeof (double));
+    LOG(p_logStream, "%s checking buffers are null prior to initialization\n", TAG);
+
+    if (*p_featureMatrixRef != NULL){
+        LOG(p_logStream, "%s cannot initialize. feature matrix could point to allocated data. try finalize()\n", TAG);
+        error = 1;
     }
 
+    if (*p_responseVectorRef != NULL){
+        LOG(p_logStream, "%s cannot initialize. response vector could point to allocated data. try finalize()\n", TAG);
+        error = 1;
+    }
+
+    if(*p_learnedThetaRef != NULL){
+        LOG(p_logStream, "%s cannot initialize. theta could point to allocated data. try finalize()\n", TAG);
+        error = 1;
+    }
+
+    if (error){
+        return ERROR;
+    }
+
+    double *preinit;
+    double *postinit;
+
+    LOG(p_logStream, "%s initializing buffers\n", TAG);
+
+    *p_responseVectorRef = calloc(numFeatures, sizeof (double));
+    *p_learnedThetaRef = calloc(numFeatures, sizeof (double));
+    *p_featureMatrixRef = calloc(numObservations, sizeof (double *));
+    for (i = 0; i < numObservations; i++){
+        preinit = *p_featureMatrixRef[i];
+        *p_featureMatrixRef[i] = calloc(numFeatures, sizeof (double));
+        postinit = *p_featureMatrixRef[i];
+    }
+
+    /*
+    double **testArr;
+    testArr = calloc(numObservations, sizeof (double *));
+    for (i = 0; i < numObservations; i++){
+        preinit = testArr[i];
+        testArr[i] = calloc(numFeatures, sizeof (double));
+        postinit = testArr[i];
+    }
+     */
+
+    LOG(p_logStream, "%s initializing library global data struct\n", TAG);
     g_data.numFeatures = numFeatures;
     g_data.numObservations = numObservations;
     g_data.echelon = echelon;
     g_data.lambda = lambda;
-    g_data.p_featureMatrix = p_featureMatrix;
-    g_data.p_responseVector = p_responseVector;
+    g_data.p_featureMatrix = *p_featureMatrixRef;
+    g_data.p_responseVector = *p_responseVectorRef;
     g_data.lenTheta = numFeatures + 1;
-    g_data.p_learnedTheta = p_learnedTheta;
+    g_data.p_learnedTheta = *p_learnedThetaRef;
 
     g_initialized = 1;
 
@@ -105,6 +140,8 @@ int finalize(){
     free(g_data.p_responseVector);
     g_data.lenTheta = 0;
     free(g_data.p_learnedTheta);
+
+    logFinalize();
 
     return SUCCESS;
 }
