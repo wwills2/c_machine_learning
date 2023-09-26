@@ -8,9 +8,10 @@
 
 FILE *p_logStream;
 
-void logInit() {
+void logInit(void) {
     int res;
     p_logStream = fopen(LOG_FILE_NAME, OPEN_MODE);
+    setbuf(p_logStream, NULL); //disable buffer for log file stream
     res = LOG(p_logStream,"logger initialized\n");
 
     if (!res){
@@ -19,6 +20,6 @@ void logInit() {
     }
 }
 
-void logFinalize(){
+void logFinalize(void){
     fclose(p_logStream);
 }

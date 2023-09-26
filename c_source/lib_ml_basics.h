@@ -31,7 +31,7 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
  *
  * @return status of the operation
  */
-int finalize();
+int finalize(void);
 
 /**
  * Entry point for learning a linear regression model via gradient descent. while loop controls descent iterations and
@@ -39,6 +39,6 @@ int finalize();
  *
  * @return status code of the operation
  */
-int gradientDescentLinReg();
+int gradientDescentLinReg(void);
 
-#endif //C_MACHINE_LEARNING_LIB_ML_BASICS_H
+#endif /* C_MACHINE_LEARNING_LIB_ML_BASICS_H */

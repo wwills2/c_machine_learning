@@ -23,6 +23,8 @@ struct {
 static char g_initialized = 0;
 static problemData_t g_data;
 
+int i_getDerivativeValues(const double *p_theta, double *p_derivativeValues);
+
 /**
  * Stores information about the learning problem and initializes buffers to store data
  *
@@ -40,6 +42,9 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
 
     int i;
     int error = 0;
+    double **p_featureMatrix;
+    double *p_responseVector;
+    double *p_learnedTheta;
 
     logInit();
     LOG(p_logStream, "%s checking buffer references\n", TAG);
@@ -84,39 +89,29 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
         return ERROR;
     }
 
-    double *preinit;
-    double *postinit;
-
     LOG(p_logStream, "%s initializing buffers\n", TAG);
 
-    *p_responseVectorRef = calloc(numFeatures, sizeof (double));
-    *p_learnedThetaRef = calloc(numFeatures, sizeof (double));
-    *p_featureMatrixRef = calloc(numObservations, sizeof (double *));
+    p_responseVector = calloc(numFeatures, sizeof (double));
+    p_learnedTheta = calloc(numFeatures, sizeof (double));
+    p_featureMatrix = calloc(numObservations, sizeof (double *));
     for (i = 0; i < numObservations; i++){
-        preinit = *p_featureMatrixRef[i];
-        *p_featureMatrixRef[i] = calloc(numFeatures, sizeof (double));
-        postinit = *p_featureMatrixRef[i];
+        p_featureMatrix[i] = calloc(numFeatures, sizeof (double));
     }
 
-    /*
-    double **testArr;
-    testArr = calloc(numObservations, sizeof (double *));
-    for (i = 0; i < numObservations; i++){
-        preinit = testArr[i];
-        testArr[i] = calloc(numFeatures, sizeof (double));
-        postinit = testArr[i];
-    }
-     */
+    // make buffers available to calling function
+    *p_featureMatrixRef = p_featureMatrix;
+    *p_responseVectorRef = p_responseVector;
+    *p_learnedThetaRef = p_learnedTheta;
 
     LOG(p_logStream, "%s initializing library global data struct\n", TAG);
     g_data.numFeatures = numFeatures;
     g_data.numObservations = numObservations;
     g_data.echelon = echelon;
     g_data.lambda = lambda;
-    g_data.p_featureMatrix = *p_featureMatrixRef;
-    g_data.p_responseVector = *p_responseVectorRef;
+    g_data.p_featureMatrix = p_featureMatrix;
+    g_data.p_responseVector = p_responseVector;
     g_data.lenTheta = numFeatures + 1;
-    g_data.p_learnedTheta = *p_learnedThetaRef;
+    g_data.p_learnedTheta = p_learnedTheta;
 
     g_initialized = 1;
 
@@ -130,16 +125,23 @@ int init(unsigned int numFeatures, unsigned int numObservations, double echelon,
  */
 int finalize(){
 
+    int i;
+
     g_initialized = 0;
+
+    free(g_data.p_responseVector);
+    free(g_data.p_learnedTheta);
+
+    for (i = 0; i < g_data.numObservations; i++){
+        free(g_data.p_featureMatrix[i]);
+    }
+    free(g_data.p_featureMatrix);
 
     g_data.numFeatures = 0;
     g_data.numObservations = 0;
     g_data.echelon = 0;
     g_data.lambda = 0;
-    free(g_data.p_featureMatrix);
-    free(g_data.p_responseVector);
     g_data.lenTheta = 0;
-    free(g_data.p_learnedTheta);
 
     logFinalize();
 
@@ -154,11 +156,6 @@ int finalize(){
  */
 int gradientDescentLinReg(){
 
-    if (!g_initialized){
-        LOG(p_logStream, "data has not been initialized. try init()");
-        return ERROR;
-    }
-
     int i;
     int status;
     unsigned int converged = 0;
@@ -166,6 +163,11 @@ int gradientDescentLinReg(){
     const unsigned int LEN_THETA = g_data.lenTheta;
     double *p_derivativeValues;
     double *p_prevTheta;
+
+    if (!g_initialized){
+        LOG(p_logStream, "data has not been initialized. try init()");
+        return ERROR;
+    }
 
     p_derivativeValues = calloc(LEN_THETA, sizeof (double));
     p_prevTheta = calloc(LEN_THETA, sizeof (double));
